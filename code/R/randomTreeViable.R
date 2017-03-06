@@ -39,11 +39,11 @@ training <- training %>%
 # This is for testing/training on the training set
 ###
 
-smp_size <- floor(0.3 * nrow(training))
+smp_size <- floor(0.5 * nrow(training))
 traindex <- sample(seq_len(nrow(training)), size = smp_size)
 
+testing <- training[-traindex,]
 training <- training[traindex,]
-testing<- training[-traindex,]
 
 predictors <- testing %>% select(-interest_level, -listing_id)
 truth <- as.character(testing$interest_level)
@@ -64,16 +64,33 @@ testing <- testing %>%
 predictors <- testing %>% select(-listing_id)
 
 ###
+# For generating training for ensemble
+###
+
+testing <- train.data
+
+testing <- testing %>% 
+  select(listing_id, price, Photo_Counts, latitude, longitude, bedrooms, 
+         fee, pets, pre_war, interest_level) %>%
+  mutate(bedrooms = (bedrooms * 10) ** 0.5 * 10) %>%
+  mutate(num.photos = (Photo_Counts * 10) ** 0.5 * 10) %>%
+  mutate(price = log(price))
+
+predictors <- testing %>% select(-listing_id, -interest_level)
+
+###
 
 training.no.lid <- training %>% select(-listing_id)
 
-r.Forest <- randomForest(interest_level ~ ., training.no.lid, ntree=500, nodesize = 50)
+# best results at ntree=2000, nodesize = 50, classwt = c(0.10, 0.55, 0.35)
+# sample size = 0.5, train/test
+r.Forest <- randomForest(interest_level ~ ., training.no.lid, ntree=2000, nodesize = 50, classwt = c(.10, 0.55, 0.35))
 
 rf.response <- predict(r.Forest, predictors, type='prob')
 
 rf.response <- cbind(testing$listing_id, rf.response)
 
-write.csv(rf.response, "tree_output_1000_512.csv", row.names = FALSE, quote = FALSE)
+write.csv(rf.response, "tree_output_test_2000_50_10_55_35.csv", row.names = FALSE, quote = FALSE)
 
 ###
 
